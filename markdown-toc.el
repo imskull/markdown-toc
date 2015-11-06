@@ -97,7 +97,6 @@
           (->>
             title
             downcase
-            (replace-regexp-in-string "[^a-z0-9 -]" "")
             (s-replace " " "-"))))
 
 (defun markdown-toc--to-markdown-toc (level-title-toc-list)
