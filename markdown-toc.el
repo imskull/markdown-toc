@@ -164,6 +164,20 @@ If called interactively with prefix arg REPLACE-TOC-P, replaces previous TOC."
         markdown-toc--generate-toc
         insert)))
 
+(defun markdown-toc-update-toc ()
+  "Update a TOC for markdown file only if TOC is already present."
+  (interactive)
+  (save-excursion
+    (when (markdown-toc--toc-already-present-p)
+      ;; when toc already present, remove it
+      (let ((region-start (markdown-toc--toc-start))
+            (region-end   (markdown-toc--toc-end)))
+        (delete-region region-start (1+ region-end))
+        (goto-char region-start)
+        (-> (markdown-imenu-create-index)
+            markdown-toc--generate-toc
+            insert)))))
+
 (defalias 'markdown-toc/generate-toc 'markdown-toc-generate-toc)
 
 (provide 'markdown-toc)
