@@ -1,13 +1,13 @@
 ;;; markdown-toc.el --- A simple TOC generator for markdown file
-;; Copyright (C) 2014 Antoine R. Dumont
+;; Copyright (C) 2014-2016 Antoine R. Dumont
 
 ;; Author: Antoine R. Dumont
 ;; Maintainer: Antoine R. Dumont
 ;; URL: http://github.com/ardumont/markdown-toc
 ;; Created: 24th May 2014
-;; Version: 0.0.8
+;; Version: 0.1.0
 ;; Keywords: markdown, toc, tools,
-;; Package-Requires: ((markdown-mode "2.0") (dash "2.11.0") (s "1.9.0"))
+;; Package-Requires: ((markdown-mode "2.1") (dash "2.11.0") (s "1.9.0"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -62,13 +62,21 @@
 (require 'dash)
 (require 'markdown-mode)
 
-(defconst markdown--toc-version "0.0.8" "Current version installed.")
+(defconst markdown-toc--toc-version "0.1.0" "Current version installed.")
+
+(defgroup markdown-toc nil
+  "A simple TOC generator for markdown file."
+  :group 'markdown)
+
+(defun markdown-toc-log-msg (args)
+  "Log message ARGS."
+  (apply #'message (format "markdown-toc - %s" (car args)) (cdr args)))
 
 ;;;###autoload
 (defun markdown-toc-version ()
   "Markdown-toc version."
   (interactive)
-  (message "markdown-toc version: %s" markdown--toc-version))
+  (message "markdown-toc version: %s" markdown-toc--toc-version))
 
 (defalias 'markdown-toc/version 'markdown-toc-version)
 
@@ -79,7 +87,9 @@
            (tail  (cdr menu-index))
            (ttail (if (integerp tail) nil (cdr tail))))
       (cons `(,level . ,fst)
-            (--mapcat (markdown-toc--compute-toc-structure-from-level (+ 1 level) it) ttail)))))
+            (--mapcat
+             (markdown-toc--compute-toc-structure-from-level (+ 1 level) it)
+             ttail)))))
 
 (defun markdown-toc--compute-toc-structure (imenu-index)
   "Given a IMENU-INDEX, compute the TOC structure."
@@ -88,29 +98,34 @@
 (defun markdown-toc--symbol (sym n)
   "Compute the repetition of a symbol SYM N times as a string."
   (--> n
-    (-repeat it sym)
-    (s-join "" it)))
+       (-repeat it sym)
+       (s-join "" it)))
 
 (defun markdown-toc--to-link (title)
   "Given a TITLE, return the markdown link associated."
   (format "[%s](#%s)" title
-          (->>
-            title
-            downcase
-            ;; (replace-regexp-in-string "[^a-z0-9 -]" "")
-            (s-replace " " "-"))))
+          (->> title
+               downcase
+               ;; (replace-regexp-in-string "[^a-z0-9 -]" "")
+               (replace-regexp-in-string "[\(\)\{\}\"@_-]" "")
+               (replace-regexp-in-string "^ " "")
+               (s-replace " " "-"))))
 
 (defun markdown-toc--to-markdown-toc (level-title-toc-list)
   "Given LEVEL-TITLE-TOC-LIST, a list of pair level, title, return a TOC string."
   (->> level-title-toc-list
-    (--map (let ((nb-spaces (* 4 (car it)))
-                 (title     (cdr it)))
-             (format "%s- %s" (markdown-toc--symbol " " nb-spaces) (markdown-toc--to-link title))))
-    (s-join "\n")))
+       (--map (let ((nb-spaces (* 4 (car it)))
+                    (title     (cdr it)))
+                (format "%s- %s" (markdown-toc--symbol " " nb-spaces)
+                        (markdown-toc--to-link title))))
+       (s-join "\n")))
 
-(defconst markdown-toc--header-toc-start "<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-generate-toc again -->")
-(defconst markdown-toc--header-toc-title "**Table of Contents**")
-(defconst markdown-toc--header-toc-end   "<!-- markdown-toc end -->")
+(defconst markdown-toc--header-toc-start
+  "<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-generate-toc again -->")
+(defconst markdown-toc--header-toc-title
+  "**Table of Contents**")
+(defconst markdown-toc--header-toc-end
+  "<!-- markdown-toc end -->")
 
 (defun markdown-toc--toc-already-present-p ()
   "Determine if a TOC has already been generated.
@@ -131,10 +146,9 @@ Return the end position if it exists, nil otherwise."
     (goto-char (point-min))
     (re-search-forward markdown-toc--header-toc-end nil t)))
 
-(defun markdown-toc--generate-toc (toc-index)
-  "Given a TOC-INDEX, compute a new toc."
-  (-> toc-index
-      markdown-toc--compute-toc-structure
+(defun markdown-toc--generate-toc (toc-structure)
+  "Given a TOC-STRUCTURE, compute a new toc."
+  (-> toc-structure
       markdown-toc--to-markdown-toc
       markdown-toc--compute-full-toc))
 
@@ -146,7 +160,37 @@ Return the end position if it exists, nil otherwise."
           toc
           markdown-toc--header-toc-end))
 
+(defcustom markdown-toc-user-toc-structure-manipulation-fn
+  (lambda (toc-structure) toc-structure)
+  "User crafted function to manipulate toc-structure as user sees fit.
+
+The toc-structure has the following form:
+'((0 . \"some markdown page title\")
+  (0 . \"main title\")
+  (1 . \"Sources\")
+  (2 . \"Marmalade (recommended)\")
+  (2 . \"Melpa-stable\")
+  (2 . \"Melpa (~snapshot)\")
+  (1 . \"Install\")
+  (2 . \"Load org-trello\")
+  (2 . \"Alternative\")
+  (3 . \"Git\")
+  (3 . \"Tar\")
+  (0 . \"another title\")
+  (1 . \"with\")
+  (1 . \"some\")
+  (1 . \"heading\"))
+
+If the user wanted to remove the first element, it could for
+example define the following function:
+  (custom-set-variables
+    '(markdown-toc-user-toc-structure-manipulation-fn 'cdr))
+
+Default to identity function (do nothing)."
+  :group 'markdown-toc)
+
 ;;;###autoload
+
 (defun markdown-toc-generate-toc (&optional replace-toc-p)
   "Generate a TOC for markdown file at current point.
 Deletes any previous TOC.
@@ -158,14 +202,39 @@ If called interactively with prefix arg REPLACE-TOC-P, replaces previous TOC."
       (let ((region-start (markdown-toc--toc-start))
             (region-end   (markdown-toc--toc-end)))
         (delete-region region-start (1+ region-end))
-        (if replace-toc-p
-            (goto-char region-start))))
-    ;; generate the toc
-    (-> (markdown-imenu-create-index)
-        markdown-toc--generate-toc
-        insert)))
+        (when replace-toc-p
+          (goto-char region-start))))
+    (->> (markdown-imenu-create-nested-index)
+         markdown-toc--compute-toc-structure
+         (funcall markdown-toc-user-toc-structure-manipulation-fn)
+         markdown-toc--generate-toc
+         insert)))
 
 (defalias 'markdown-toc/generate-toc 'markdown-toc-generate-toc)
+
+(defun markdown-toc--bug-report ()
+  "Compute the bug report for the user to include."
+  (->> `("Please:"
+         "- Describe your problem with clarity and conciceness (cf. https://www.gnu.org/software/emacs/manual/html_node/emacs/Understanding-Bug-Reporting.html)"
+         "- Explicit your installation choice (melpa, marmalade, el-get, tarball, git clone...)."
+         "- Report the following message trace inside your issue."
+         ""
+         "System information:"
+         ,(format "- system-type: %s" system-type)
+         ,(format "- locale-coding-system: %s" locale-coding-system)
+         ,(format "- emacs-version: %s" (emacs-version))
+         ,(format "- markdown-toc version: %s" markdown-toc--toc-version)
+         ,(format "- markdown-toc path: %s" (find-library-name "markdown-toc")))
+       (s-join "\n")))
+
+(defun markdown-toc-bug-report (&optional open-url)
+  "Display a bug report message.
+When OPEN-URL is filled, with universal argument (`C-u') is used,
+opens new issue in markdown-toc's github tracker."
+  (interactive "P")
+  (when open-url
+    (browse-url "https://github.com/ardumont/markdown-toc/issues/new"))
+  (markdown-toc-log-msg (list (markdown-toc--bug-report))))
 
 (provide 'markdown-toc)
 ;;; markdown-toc.el ends here
