@@ -1,8 +1,8 @@
 markdown-toc
 ============
 
-Forked from: [ardumont's markdown-toc](https://github.com/ardumont/markdown-toc)
-My patch: fix anchor error of chinese characters.
+- Forked from: [ardumont's markdown-toc](https://github.com/ardumont/markdown-toc)
+- My patch: fix anchor error of chinese characters.
 
 [![Build Status](https://travis-ci.org/ardumont/markdown-toc.png?branch=master)](https://travis-ci.org/ardumont/markdown-toc) [![Coverage Status](https://coveralls.io/repos/ardumont/markdown-toc/badge.svg?branch=master&service=github)](https://coveralls.io/github/ardumont/markdown-toc?branch=master) [![MELPA Stable](http://stable.melpa.org/packages/markdown-toc-badge.svg)](http://stable.melpa.org/#/markdown-toc) [![MELPA](http://melpa.org/packages/markdown-toc-badge.svg)](http://melpa.org/#/markdown-toc)
 
